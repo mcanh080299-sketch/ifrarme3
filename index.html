@@ -147,75 +147,61 @@
     </div>
     
     <!--
-      * PHẦN 3: LOGIC ĐIỀU KHIỂN (LẤY TỪ indexaa.html của bạn)
-      * Đã đơn giản hóa chỉ còn 1 nút
+      * PHẦN 3: LOGIC ĐIỀU KHIỂN
+      * ĐÃ BỊ THAY THẾ HOÀN TOÀN bằng logic từ file index.html (file điều khiển được)
+      * và đã được điều chỉnh để khớp với giao diện nút bấm mới.
     -->
+
+    <!-- Tải thư viện E-Ra Widget (BẮT BUỘC) -->
+    <script src="https://www.unpkg.com/@eohjsc/era-widget@1.1.3/src/index.js"></script>
     <script>
-        /* Thay đổi: Chỉ còn 1 công tắc */
-        const switches = ["sw1"];
-        const state = { sw1: false };
+        // 1. Tìm nút bấm của bạn bằng ID 'sw1' (thay vì 'the_switch')
+        const theSwitch = document.getElementById('sw1');
+        let configLed = null, newStatusLed = null, actions = [];
 
-        /**
-         * HÀM RENDER (ĐÃ SỬA)
-         * Hàm này 'vẽ' lại trạng thái.
-         * Nó tìm nút bằng ID (ví dụ 'sw1') và thêm/xóa class 'on'.
-         * CSS sẽ tự động xử lý việc ẩn/hiện chữ 'ON'/'OFF'.
-         */
-        function render(id) {
-            const key = document.getElementById(id);
-            if (!key) return; // Không tìm thấy nút thì bỏ qua
+        // 2. Khởi tạo EraWidget (Giữ nguyên từ code của bạn)
+        const eraWidget = new EraWidget();
+        eraWidget.init({
+            needRealtimeConfigs: true,
+            needHistoryConfigs: true,
+            needActions: true,
+            maxRealtimeConfigsCount: 3,
+            maxHistoryConfigsCount: 1,
+            maxActionsCount: 2,
+            minRealtimeConfigsCount: 0,
+            minHistoryConfigsCount: 0,
+            minActionsCount: 0,
 
-            const on = state[id];
-            key.classList.toggle("on", on);
-        }
+            // 3. Hàm nhận cấu hình (Giữ nguyên)
+            onConfiguration: (configuration) => {
+                configLed = configuration.realtime_configs[0];
+                actions = configuration.actions;
+            },
 
-        /**
-         * HÀM TOGGLE (GIỮ NGUYÊN TỪ CODE CỦA BẠN)
-         * Hàm này đảo trạng thái, gọi 'render' để cập nhật giao diện,
-         * và gửi tin nhắn postMessage ra cửa sổ 'parent' (trang mẹ).
-         */
-        function toggle(id) {
-            state[id] = !state[id];
-            render(id);
-            window.parent?.postMessage({ type: "era:command", id, value: state[id] }, "*");
-        }
+            // 4. Hàm nhận giá trị (ĐÃ SỬA để cập nhật giao diện class '.on')
+            onValues: (values) => {
+                if (!configLed) return; // Bỏ qua nếu chưa có cấu hình
+                
+                const stateLed = values[configLed.id].value;
 
-        /**
-         * GÁN SỰ KIỆN CLICK (ĐÃ SỬA)
-         * Lặp qua các ID và gán sự kiện 'click'
-         * trực tiếp vào nút (ví dụ: 'sw1')
-         */
-        switches.forEach(id => {
-            const button = document.getElementById(id);
-            if (button) {
-                button.addEventListener("click", () => toggle(id));
-            }
-            render(id); // Hiển thị trạng thái ban đầu (OFF)
+                if (newStatusLed !== stateLed) {
+                    newStatusLed = stateLed;
+                    
+                    // THAY ĐỔI QUAN TRỌNG:
+                    // Thay vì `theSwitch.checked = stateLed;`
+                    // Chúng ta dùng `classList.toggle` để khớp với CSS của bạn
+                    theSwitch.classList.toggle('on', stateLed === 1);
+                }
+            },
         });
 
-        /**
-         * LẮNG NGHE LỆNH (GIỮ NGUYÊN TỪ CODE CỦA BẠN)
-         * Lắng nghe tin nhắn 'message' từ cửa sổ 'parent'
-         * để cập nhật trạng thái từ bên ngoài.
-         */
-        window.addEventListener("message", (event) => {
-            const msg = event.data || {};
-            
-            // Cập nhật 1 công tắc
-            if (msg.type === "era:update" && switches.includes(msg.id)) {
-                state[msg.id] = !!msg.value;
-                render(msg.id);
-            }
-            
-            // Cập nhật hàng loạt (batch)
-            if (msg.type === "era:batch" && msg.data) {
-                switches.forEach(k => {
-                    if (k in msg.data) {
-                        state[k] = !!msg.data[k];
-                        render(k);
-                    }
-                });
-                // (Không có chỗ hiển thị deviceId trong giao diện này nên bỏ qua)
+        // 5. Hàm gửi lệnh (Giữ nguyên)
+        // Sự kiện này đã được gán cho 'theSwitch' (tức là nút 'sw1' của bạn)
+        theSwitch.addEventListener('click', () => {
+            if (newStatusLed === 1) {
+                eraWidget.triggerAction(actions[1]?.action, null); // Kích hoạt 'Tắt'
+            } else {
+                eraWidget.triggerAction(actions[0]?.action, null); // Kích hoạt 'Bật'
             }
         });
     </script>
